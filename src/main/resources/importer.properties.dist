@@ -1,0 +1,7 @@
+kaltura.endpoint=https://www.kaltura.com/
+kaltura.partnerId=1
+kaltura.adminSecret=changethis
+kaltura.user=changethis
+mpx.baseUrl=https://identity.auth.theplatform.eu/idm
+mpx.user=mpx/changethis
+mpx.password=changethis
