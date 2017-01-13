@@ -5,37 +5,44 @@ import ch.qos.logback.classic.LoggerContext;
 import com.kaltura.client.KalturaApiException;
 import com.kaltura.client.KalturaClient;
 import com.kaltura.client.KalturaConfiguration;
+import com.kaltura.client.enums.KalturaMediaEntryOrderBy;
 import com.kaltura.client.enums.KalturaSessionType;
-import com.kaltura.client.types.KalturaFilterPager;
-import com.kaltura.client.types.KalturaMediaEntryFilter;
-import com.kaltura.client.types.KalturaMediaListResponse;
+import com.kaltura.client.types.*;
 import com.theplatform.data.api.Range;
 import com.theplatform.data.api.client.ClientConfiguration;
 import com.theplatform.data.api.marshalling.PayloadForm;
 import com.theplatform.data.api.objects.DataObjectField;
 import com.theplatform.data.api.objects.Feed;
 import com.theplatform.data.api.objects.FieldInfo;
+import com.theplatform.fms.api.client.FileManagementClient;
+import com.theplatform.fms.api.data.*;
 import com.theplatform.media.api.client.MediaClient;
+import com.theplatform.media.api.client.ReleaseClient;
+import com.theplatform.media.api.data.objects.ContentType;
 import com.theplatform.media.api.data.objects.Media;
+import com.theplatform.media.api.data.objects.TransferInfo;
 import com.theplatform.module.authentication.client.AuthenticationClient;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
 public class KalturaToMpxImporter {
     private KalturaClient kalturaClient;
     private MediaClient mpxMediaClient;
-    private AuthenticationClient mpxAuthClient;
-    private ClientConfiguration mpxConfig;
+    private ReleaseClient mpxRelease;
+    private FileManagementClient mpxFileManagementClient;
     private Properties properties;
-    private final int authSessionExpiry = 60; // seconds
+    private final int authSessionExpiry = 600; // seconds
 
-    public KalturaToMpxImporter() throws Exception {
+    KalturaToMpxImporter() throws Exception {
         String filename = "importer.properties";
         InputStream inputStream = ClassLoader.getSystemResourceAsStream(filename);
         if (inputStream == null) {
@@ -47,7 +54,7 @@ public class KalturaToMpxImporter {
         authMpx();
     }
 
-    protected void authKaltura() throws Exception {
+    private void authKaltura() throws Exception {
         KalturaConfiguration config = new KalturaConfiguration();
         config.setEndpoint(properties.getProperty("kaltura.endpoint"));
         KalturaClient client = new KalturaClient(config);
@@ -63,46 +70,128 @@ public class KalturaToMpxImporter {
         kalturaClient = client;
     }
 
-    public void importMedia() throws KalturaApiException {
-        // in batches:
+    void importMedia() throws KalturaApiException {
+        // EXTRACT ---
         // get kaltura objects
         // convert to mpx objects
         // send to mpx
+        int pageSize = 60; // can not be over 83 (500/6) right now due to flavour filter not working with more entries
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
+        filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.toString();
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = 2;
+        pager.pageSize = pageSize;
         pager.pageIndex = 1;
+
+        // get kaltura media
         KalturaMediaListResponse resp = kalturaClient.getMediaService().list(filter, pager);
-        List<Media> objects = resp.objects.stream()
+
+        // get kaltura flavor
+        KalturaAssetFilter kalturaAssetFilter = new KalturaAssetFilter();
+        kalturaAssetFilter.entryIdIn = resp.objects.stream().map(k -> k.id).collect(Collectors.joining(","));
+        KalturaFilterPager flavorPager = new KalturaFilterPager();
+        flavorPager.pageSize = pageSize * 6; // @todo filter by flavour 0 only.
+        flavorPager.pageIndex = 1;
+        KalturaFlavorAssetListResponse flavors = kalturaClient.getFlavorAssetService().list(kalturaAssetFilter, flavorPager);
+
+        // get urls from flavors
+        Map<String, String> downloadUrls = new HashMap<>();
+        for (KalturaFlavorAsset f : flavors.objects) {
+            if (f.flavorParamsId != 0) {
+                continue;
+            }
+            try {
+                downloadUrls.put(f.entryId, kalturaClient.getFlavorAssetService().getDownloadUrl(f.id));
+            } catch (KalturaApiException e) {
+                System.out.printf("Flavor error: %s\n", e.getMessage());
+            }
+        }
+
+        // TRANSFORM ---
+        // convert kaltura to mpx objects
+        List<Media> mpxMedia = resp.objects.stream()
                 .map(KalturaMpxConverter.convert)
                 .collect(Collectors.toList());
+
+        // LOAD --
+        // create mpx media
+        String[] responseFields = new String[]{
+                DataObjectField.guid.toString(),
+                DataObjectField.id.toString()
+        };
+        Feed<Media> responseMedia = mpxMediaClient.create(mpxMedia, responseFields);
+
+        // create mpx linked media files
+        responseMedia.getEntries().parallelStream()
+                .forEach(m -> {
+                    String entryId = m.getGuid();
+                    String url = downloadUrls.get(entryId);
+                    if (url == null) {
+                        System.out.printf("No flavor for %s\n", entryId);
+                    } else {
+                        try {
+                            URI id = m.getId();
+                            FileManagementService service = mpxFileManagementClient.getService();
+                            // linked movie
+                            MediaFileInfo mfi = new MediaFileInfo();
+                            mfi.setContentType(ContentType.video);
+                            mfi.setAllowRelease(true);
+                            TransferInfo ti = new TransferInfo();
+                            ti.setSupportsStreaming(true);
+                            ti.setSupportsDownload(true);
+                            mfi.setTransferInfo(ti);
+
+                            FileResult result = service.linkNewFile(id, url, mfi, false, null, Priority.normal);
+//                    @todo is a release needed here? i get a 403
+//                    Release release = new Release();
+//                    release.setFileId(result.getFileId());
+//                    release.setMediaId(id);
+//                    release.setApproved(true);
+//                    mpxRelease.create(release);
+
+                            // linked thumbnail
+                            mfi = new MediaFileInfo();
+                            mfi.setContentType(ContentType.image);
+                            mfi.setAllowRelease(true);
+                            mfi.setIsThumbnail(true);
+                            mfi.setWidth(640);
+                            mfi.setHeight(480);
+                            result = service.linkNewFile(id, String.format("http://api.medianac.com/p/120/sp/12000/thumbnail/entry_id/%s/width/640/height/480", entryId), mfi, false, null, Priority.normal);
+
+//                    release.setFileId(result.getFileId());
+//                    mpxRelease.create(release);
+                        } catch (FileManagementException e) {
+                            System.out.printf("FileManagement error with %s: %s\n", m.getGuid(), e.getMessage());
+                        }
+                    }
+                });
     }
 
-    protected void authMpx() {
+    private void authMpx() throws UnknownHostException {
         BasicConfigurator.configureDefaultContext();
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
         Logger rootLogger = lc.getLogger(Logger.ROOT_LOGGER_NAME);
         rootLogger.setLevel(Level.INFO);
 
-        mpxAuthClient = new AuthenticationClient(
+        AuthenticationClient mpxAuthClient = new AuthenticationClient(
                 properties.getProperty("mpx.baseUrl"),
                 properties.getProperty("mpx.user"),
                 properties.getProperty("mpx.password"),
-                null);
+                new String[]{properties.getProperty("mpx.accountId")}
+        );
         mpxAuthClient.setTokenDuration(authSessionExpiry * 1000L);
-        mpxConfig = new ClientConfiguration();
-        mpxConfig.setStreamingResults(true);
-        mpxConfig.setPayloadForm(PayloadForm.JSON);
+        ClientConfiguration mpxDataConfig = new ClientConfiguration();
+        mpxDataConfig.setStreamingResults(true);
+        mpxDataConfig.setPayloadForm(PayloadForm.JSON);
+        mpxMediaClient = new MediaClient("http://data.media.theplatform.eu/media", mpxAuthClient, mpxDataConfig);
+        mpxRelease = new ReleaseClient("http://data.media.theplatform.com/media", mpxAuthClient, mpxDataConfig);
+
+
+        com.theplatform.web.api.client.ClientConfiguration mpxWebConfig = new com.theplatform.web.api.client.ClientConfiguration();
+        mpxWebConfig.setPayloadForm(com.theplatform.web.api.marshalling.PayloadForm.JSON);
+        mpxFileManagementClient = new FileManagementClient("http://fms.theplatform.eu", mpxAuthClient, mpxWebConfig);
     }
 
     public void showSomeMpxMedia() {
-        try {
-            mpxMediaClient = new MediaClient("http://data.media.theplatform.eu/media", mpxAuthClient, mpxConfig);
-        } catch (UnknownHostException e) {
-            System.out.println("Unknown host exception: " + e.getMessage());
-            return;
-        }
-
         int rangeLowerBound = 1;
         int rangeUpperBound = 100; //limit to 100 objects
         //rangeUpperBound = Range.UNBOUNDED; // return all objects
