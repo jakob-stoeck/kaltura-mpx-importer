@@ -2,7 +2,6 @@ import com.kaltura.client.KalturaApiException;
 import com.kaltura.client.enums.KalturaMediaEntryOrderBy;
 import com.kaltura.client.types.*;
 import com.theplatform.data.api.objects.DataObjectField;
-import com.theplatform.data.api.objects.Feed;
 import com.theplatform.fms.api.data.FileManagementService;
 import com.theplatform.fms.api.data.FileResult;
 import com.theplatform.fms.api.data.MediaFileInfo;
@@ -11,6 +10,7 @@ import com.theplatform.media.api.client.ReleaseClient;
 import com.theplatform.media.api.data.objects.*;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,26 +22,26 @@ class MediaImporter {
         // get kaltura objects
         // convert to mpx objects
         // send to mpx
-        int pageSize = 30; // can not be over 83 (500/6) right now due to flavour filter not working with more entries
+        int pageSize = 60; // can not be over 83 (500/6) right now due to flavour filter not working with more entries
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
         KalturaFilterPager pager = new KalturaFilterPager();
         pager.pageSize = pageSize;
-        pager.pageIndex = 1;
+        pager.pageIndex = 4;
 
         // get kaltura media
-        KalturaMediaListResponse resp = importer.getKalturaClient().getMediaService().list(filter, pager);
+        List<KalturaMediaEntry> kalturaMediaEntries = importer.getKalturaClient().getMediaService().list(filter, pager).objects;
 
         // get kaltura flavor
         KalturaAssetFilter kalturaAssetFilter = new KalturaAssetFilter();
-        kalturaAssetFilter.entryIdIn = resp.objects.stream().map(k -> k.id).collect(Collectors.joining(","));
+        kalturaAssetFilter.entryIdIn = kalturaMediaEntries.stream().map(k -> k.id).collect(Collectors.joining(","));
         KalturaFilterPager flavorPager = new KalturaFilterPager();
         flavorPager.pageSize = pageSize * 6; // @todo filter by flavour 0 only.
         flavorPager.pageIndex = 1;
-        KalturaFlavorAssetListResponse flavors = importer.getKalturaClient().getFlavorAssetService().list(kalturaAssetFilter, flavorPager);
+        List<KalturaFlavorAsset> flavors = importer.getKalturaClient().getFlavorAssetService().list(kalturaAssetFilter, flavorPager).objects;
 
         // get urls from flavors
-        Map<String, String> downloadUrls = flavors.objects.parallelStream()
+        Map<String, String> downloadUrls = flavors.parallelStream()
                 .filter(f -> f.flavorParamsId == 0)
                 .collect(Collectors.toMap(f -> f.entryId, f -> {
                     try {
@@ -51,10 +51,16 @@ class MediaImporter {
                     }
                 }));
 
+        Map<String, Category> categoriesByGuid = new HashMap<>();
+        List<Category> categories = importer.getMpxCategoryClient().getAll(new String[]{"guid", "id"}, null, null, null, false).getEntries();
+        for (Category c : categories) {
+            categoriesByGuid.put(c.getGuid(), c);
+        }
+
         // TRANSFORM ---
         // convert kaltura to mpx objects
-        List<Media> mpxMedia = resp.objects.stream()
-                .map(KalturaMpxConverter.convert)
+        List<Media> mpxMedia = kalturaMediaEntries.stream()
+                .map(k -> KalturaMpxConverter.convert(k, categoriesByGuid))
                 .collect(Collectors.toList());
 
         // LOAD --
@@ -63,11 +69,11 @@ class MediaImporter {
                 DataObjectField.guid.toString(),
                 DataObjectField.id.toString()
         };
-        Feed<Media> responseMedia = importer.getMpxMediaClient().create(mpxMedia, responseFields);
+        List<Media> responseMedia = importer.getMpxMediaClient().create(mpxMedia, responseFields).getEntries();
 
         // create mpx linked media files
         FileManagementService fileManagementService = importer.getMpxFileManagementClient().getService();
-        responseMedia.getEntries().parallelStream()
+        responseMedia.parallelStream()
                 .forEach(m -> persistMpxMedia(m, downloadUrls, fileManagementService, importer.getMpxReleaseClient()));
     }
 
