@@ -19,7 +19,6 @@ class KalturaMpxConverter {
         category.setGuid(importId(kalturaCategory.id));
         category.setDescription(kalturaCategory.description);
         category.setScheme("Import");
-        if (kalturaCategory.createdAt >= 0) category.setAdded(secondsToDate(kalturaCategory.createdAt));
         return category;
     };
 
@@ -42,8 +41,7 @@ class KalturaMpxConverter {
     static Media convert(final KalturaMediaEntry kalturaMediaEntry) {
         Media media = new Media();
         media.setDescription(kalturaMediaEntry.description);
-        if (kalturaMediaEntry.updatedAt >= 0) media.setUpdated(secondsToDate(kalturaMediaEntry.updatedAt));
-        if (kalturaMediaEntry.createdAt >= 0) media.setAdded(secondsToDate(kalturaMediaEntry.createdAt));
+        if (kalturaMediaEntry.createdAt >= 0) media.setPubDate(secondsToDate(kalturaMediaEntry.createdAt));
         if (kalturaMediaEntry.startDate >= 0) media.setAvailableDate(secondsToDate(kalturaMediaEntry.startDate));
         if (kalturaMediaEntry.endDate >= 0) media.setExpirationDate(secondsToDate(kalturaMediaEntry.endDate));
         media.setTitle(kalturaMediaEntry.name);
