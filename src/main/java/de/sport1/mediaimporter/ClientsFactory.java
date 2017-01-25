@@ -1,30 +1,22 @@
-import ch.qos.logback.classic.BasicConfigurator;
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.LoggerContext;
+package de.sport1.mediaimporter;
+
 import com.kaltura.client.KalturaClient;
 import com.kaltura.client.KalturaConfiguration;
 import com.kaltura.client.enums.KalturaSessionType;
-import com.theplatform.data.api.Range;
 import com.theplatform.data.api.client.ClientConfiguration;
 import com.theplatform.data.api.marshalling.PayloadForm;
-import com.theplatform.data.api.objects.DataObjectField;
-import com.theplatform.data.api.objects.Feed;
-import com.theplatform.data.api.objects.FieldInfo;
 import com.theplatform.fms.api.client.FileManagementClient;
 import com.theplatform.media.api.client.CategoryClient;
 import com.theplatform.media.api.client.MediaClient;
 import com.theplatform.media.api.client.ReleaseClient;
-import com.theplatform.media.api.data.objects.Media;
 import com.theplatform.module.authentication.client.AuthenticationClient;
-import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.UnknownHostException;
 import java.util.Properties;
 
-public class KalturaToMpxImporter {
+class ClientsFactory {
     private final int authSessionExpiry = 1800; // seconds
     private KalturaClient kalturaClient;
     private MediaClient mpxMediaClient;
@@ -32,8 +24,11 @@ public class KalturaToMpxImporter {
     private FileManagementClient mpxFileManagementClient;
     private CategoryClient mpxCategoryClient;
     private Properties properties;
+    private String kalturaSessionId;
+    private KalturaConfiguration kalturaConfiguration;
+    private int kalturaPartnerId;
 
-    KalturaToMpxImporter() throws Exception {
+    ClientsFactory() throws Exception {
         String filename = "importer.properties";
         InputStream inputStream = ClassLoader.getSystemResourceAsStream(filename);
         if (inputStream == null) {
@@ -46,27 +41,23 @@ public class KalturaToMpxImporter {
     }
 
     private void authKaltura() throws Exception {
-        KalturaConfiguration config = new KalturaConfiguration();
-        config.setEndpoint(properties.getProperty("kaltura.endpoint"));
-        KalturaClient client = new KalturaClient(config);
-        client.setPartnerId(Integer.parseInt(properties.getProperty("kaltura.partnerId")));
-        client.setSessionId(client.generateSessionV2(
+        kalturaConfiguration = new KalturaConfiguration();
+        kalturaConfiguration.setEndpoint(properties.getProperty("kaltura.endpoint"));
+        kalturaPartnerId = Integer.parseInt(properties.getProperty("kaltura.partnerId"));
+        kalturaClient = new KalturaClient(kalturaConfiguration);
+        kalturaClient.setPartnerId(kalturaPartnerId);
+        kalturaSessionId = kalturaClient.generateSessionV2(
                 properties.getProperty("kaltura.adminSecret"),
                 properties.getProperty("kaltura.user"),
-                KalturaSessionType.USER,
+                KalturaSessionType.ADMIN,
                 Integer.parseInt(properties.getProperty("kaltura.partnerId")),
                 authSessionExpiry,
                 ""
-        ));
-        kalturaClient = client;
+        );
+        kalturaClient.setSessionId(kalturaSessionId);
     }
 
     private void authMpx() throws UnknownHostException {
-        BasicConfigurator.configureDefaultContext();
-        LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
-        Logger rootLogger = lc.getLogger(Logger.ROOT_LOGGER_NAME);
-        rootLogger.setLevel(Level.INFO);
-
         AuthenticationClient mpxAuthClient = new AuthenticationClient(
                 properties.getProperty("mpx.baseUrl"),
                 properties.getProperty("mpx.user"),
@@ -87,39 +78,17 @@ public class KalturaToMpxImporter {
         mpxFileManagementClient = new FileManagementClient("http://fms.theplatform.eu", mpxAuthClient, mpxWebConfig);
     }
 
-    public void showSomeMpxMedia(MediaClient mpxMediaClient) {
-        int rangeLowerBound = 1;
-        int rangeUpperBound = 100; //limit to 100 objects
-        //rangeUpperBound = Range.UNBOUNDED; // return all objects
-
-        // request all visible Media objects
-        Feed<Media> mediaList = mpxMediaClient.getAll(
-                new String[]{
-                        DataObjectField.id.toString(),
-                        DataObjectField.title.toString(),
-                        DataObjectField.customValues.toString()}, // return title, id, and custom fields
-                null,   // query (default returns all visible objects)
-                null,   // sort (default sorts by updated descending)
-                new Range(rangeLowerBound, rangeUpperBound),   // return number of objects in range
-                true);  // count total results
-
-        System.out.println("Total results: " + mediaList.getTotalResults());
-
-        // stream the results; print id, title, and custom values
-        while (mediaList.getStreamingIterator().hasNext()) {
-            Media media = mediaList.getStreamingIterator().next();
-            System.out.println(media.getId() + " " + media.getTitle());
-
-            if (media.getCustomValues() != null) {
-                for (FieldInfo field : media.getCustomValues().keySet()) {
-                    System.out.println("  " + field + " -> " + media.getCustomValues().get(field));
-                }
-            }
-        }
+    KalturaClient getKalturaClientUnsafe() {
+        return kalturaClient;
     }
 
-    KalturaClient getKalturaClient() {
-        return kalturaClient;
+    synchronized KalturaClient getKalturaClient() {
+        // KalturaClient is not thread safe. It has an internal request queue which is cleared after every request
+        // You can use its multi-request functionality instead
+        KalturaClient client = new KalturaClient(kalturaConfiguration);
+        client.setSessionId(kalturaSessionId);
+        client.setPartnerId(kalturaPartnerId);
+        return client;
     }
 
     MediaClient getMpxMediaClient() {
