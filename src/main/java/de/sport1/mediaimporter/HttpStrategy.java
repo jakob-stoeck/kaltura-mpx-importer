@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.stream.Collectors;
 
 /**
  * Persists a Feed via an HTTP Push
@@ -35,6 +36,9 @@ public class HttpStrategy implements PersistenceStrategy {
         MarshallingContext marshallingContext = new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true);
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         mrss.marshal(list, byteArrayOutputStream, marshallingContext);
+        String xml = byteArrayOutputStream.toString();
+        System.out.println(xml);
+        System.out.print("persisting ... ");
 
         String urlString = String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass);
         URL url = new URL(urlString);
@@ -42,13 +46,18 @@ public class HttpStrategy implements PersistenceStrategy {
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
         OutputStreamWriter writer = new OutputStreamWriter(conn.getOutputStream());
-        writer.write(byteArrayOutputStream.toString());
+        writer.write(xml);
         writer.flush();
         String line;
         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        System.out.print("done. Response: ");
         while ((line = reader.readLine()) != null) {
-            System.out.println(line);
+            System.out.print(line);
+            if (line.contains("<ingest:error>true</ingest:error>")) {
+                System.err.printf("%nError with: " + list.getEntries().stream().map(Entry::getGuid).collect(Collectors.joining(", ")) + "%n");
+            }
         }
+        System.out.println();
         writer.close();
         reader.close();
     }

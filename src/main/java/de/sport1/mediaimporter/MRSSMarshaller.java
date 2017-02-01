@@ -7,9 +7,9 @@ package de.sport1.mediaimporter;
 
 import com.theplatform.data.api.exception.MidStreamException;
 import com.theplatform.data.api.marshalling.*;
-import com.theplatform.data.api.marshalling.namespace.Namespace;
 import com.theplatform.data.api.objects.Entry;
 import com.theplatform.data.api.objects.Feed;
+import com.theplatform.data.api.objects.type.CategoryInfo;
 import com.theplatform.media.api.data.objects.Media;
 import com.theplatform.media.api.data.objects.MediaFile;
 import com.theplatform.module.exception.RuntimeServiceException;
@@ -102,9 +102,7 @@ public class MRSSMarshaller implements Marshaller {
     private void startRSS(XMLStreamWriter writer) throws MarshallingException, XMLStreamException {
         writer.writeStartElement("rss");
         writer.writeAttribute("version", "2.0");
-        for (Map.Entry<String, String> ns : namespaces.entrySet()) {
-            writer.writeNamespace(ns.getKey(), ns.getValue());
-        }
+        declareNamespaces(namespaces, writer);
     }
 
     private void writeChannel(Feed<Entry> feed, BufferingXMLStreamWriter writer, MarshallingContext context) throws MarshallingException, XMLStreamException, IOException {
@@ -158,86 +156,96 @@ public class MRSSMarshaller implements Marshaller {
         writer.writeAttribute("isPermalink", "false");
         writer.writeCharacters(entry.getGuid());
         writer.writeEndElement();
-        writeElement("title", entry.getTitle(), writer, context);
-        writeElement("description", entry.getDescription(), writer, context);
+        writeElement("title", entry.getTitle(), writer);
+        writeElement("description", entry.getDescription(), writer);
+        writeElement("media", "keywords", entry.getKeywords(), writer);
 //        if (entry.getExpirationDate() != null) {
 //            writeElement("dcterms", "valid", "http://purl.org/dc/terms/", "todo", writer, context);
 //        }
         if (entry.getCategoryIds() != null) {
             for (URI uri : entry.getCategoryIds()) {
-                writeElement("media", "categoryId", namespaces.get("media"), uri.toString(), writer, context);
+                writeElement("media", "categoryId", uri.toString(), writer);
             }
         }
-//        writeElement("plmedia", "restrictionId", "http://xml.theplatform.com/media/data/Media", "todo", writer, context);
+        if (entry.getCategories() != null) {
+            for (CategoryInfo c : entry.getCategories()) {
+                writer.writeStartElement("media", "category", null);
+                writeAttribute("scheme", c.getScheme(), writer);
+                writeAttribute("label", c.getLabel(), writer);
+                writer.writeCharacters(c.getName());
+                writer.writeEndElement();
+            }
+        }
+        if (entry.getRestrictionId() != null) {
+            writeElement("plmedia", "restrictionId", entry.getRestrictionId().toString(), writer);
+        }
         if (entry.getPubDate() != null) {
-            writeElement("pubDate", isoTime(entry.getPubDate()), writer, context);
+            writeElement("pubDate", isoTime(entry.getPubDate()), writer);
         }
         if (entry.getContent() != null) {
-            writer.writeStartElement("media", "group", "http://search.yahoo.com/mrss/");
+            writer.writeStartElement("media", "group", null);
             for (MediaFile mf : entry.getContent()) {
-                writer.writeStartElement("media", "content", "http://search.yahoo.com/mrss/");
+                writer.writeStartElement("media", "content", null);
                 writeAttribute("filesize", mf.getFileSize(), writer);
                 writeAttribute("framerate", mf.getFrameRate(), writer);
                 writeAttribute("duration", mf.getDuration(), writer);
                 writeAttribute("bitrate", mf.getBitrate(), writer);
                 writeAttribute("height", mf.getHeight(), writer);
                 writeAttribute("width", mf.getWidth(), writer);
-                writeElement("plfile", "aspectRatio", namespaces.get("plingestm"), mf.getAspectRatio().toString(), writer, context);
-                writeElement("plfile", "displayAspectRatio", namespaces.get("plingestm"), "16:9", writer, context);
-                writer.writeStartElement("plingestmf", "ingestOptions", namespaces.get("plingestmf"));
+                writeElement("plfile", "aspectRatio", mf.getAspectRatio().toString(), writer);
+                writeElement("plfile", "displayAspectRatio", "16:9", writer);
+                writer.writeStartElement("plingestmf", "ingestOptions", null);
                 writer.writeAttribute("method", "Manage");
                 writer.writeEndElement();
-                writeElement("plfile", "assetType", namespaces.get("plingestm"), String.join(", ", mf.getAssetTypes()), writer, context);
-                writeElement("plfile", "serverId", namespaces.get("plingestm"), mf.getServerId().toString(), writer, context);
-                writeElement("plfile", "sourceUrl", namespaces.get("plingestm"), mf.getSourceUrl(), writer, context);
+                writeElement("plfile", "assetType", String.join(", ", mf.getAssetTypes()), writer);
+                writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
+                writeElement("plfile", "sourceUrl", mf.getSourceUrl(), writer);
                 writer.writeEndElement();
             }
             writer.writeEndElement();
         }
         if (entry.getThumbnails() != null) {
             MediaFile mf = entry.getThumbnails()[0];
-            writer.writeStartElement("media", "thumbnail", namespaces.get("media"));
-            writeElement("plfile", "assetType", namespaces.get("plingestm"), String.join(", ", mf.getAssetTypes()), writer, context);
-            writeElement("plfile", "serverId", namespaces.get("plingestm"), mf.getServerId().toString(), writer, context);
-            writeElement("plfile", "sourceUrl", namespaces.get("plingestm"), mf.getSourceUrl(), writer, context);
-            writer.writeStartElement("plingestmf", "ingestOptions", namespaces.get("plingestmf"));
+            writer.writeStartElement("media", "thumbnail", null);
+            writeElement("plfile", "assetType", String.join(", ", mf.getAssetTypes()), writer);
+            writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
+            writeElement("plfile", "sourceUrl", mf.getSourceUrl(), writer);
+            writer.writeStartElement("plingestmf", "ingestOptions", null);
             writer.writeAttribute("method", "Copy");
             writer.writeEndElement();
-            writer.writeStartElement("plingestmf", "ingestOptions", namespaces.get("plingestmf"));
+            writer.writeStartElement("plingestmf", "ingestOptions", null);
             writer.writeAttribute("requiredPath", String.format("%s/%s.jpg", entry.getGuid(), entry.getGuid()));
             writer.writeEndElement();
             writer.writeEndElement();
         }
-        writer.writeStartElement("plingestm", "workflowOption", namespaces.get("plingestm"));
-        writeElement("plingestm", "service", "publish", namespaces.get("plingestm"), writer, context);
-        writeElement("plingestm", "method", "publish", namespaces.get("plingestm"), writer, context);
-        writer.writeStartElement("plingestm", "argument", namespaces.get("plingestm"));
-        writeElement("plingestm", "key", "profile", namespaces.get("plingestm"), writer, context);
-        writeElement("plingestm", "value", namespaces.get("plingestm"), "Add releases to progressive MP4 files", writer, context);
+        writer.writeStartElement("plingestm", "workflowOption", null);
+        writeElement("plingestm", "service", "publish", writer);
+        writeElement("plingestm", "method", "publish", writer);
+        writer.writeStartElement("plingestm", "argument", null);
+        writeElement("plingestm", "key", writer);
+        writeElement("plingestm", "value", "Add releases to progressive MP4 files", writer);
         writer.writeEndElement();
         writer.writeEndElement();
-        writer.writeStartElement("sport1", "sourceSystemId", namespaces.get("sport1"));
-        writer.writeAttribute(namespaces.get("xsi"), "xsi", "type");
+        writer.writeStartElement("sport1", "sourceSystemId", null);
+        writer.writeAttribute("xsi", "type");
         writer.writeCharacters(entry.getGuid());
         writer.writeEndElement();
     }
 
     private void writeAttribute(String localName, Serializable text, BufferingXMLStreamWriter writer) throws XMLStreamException {
-        writer.writeAttribute(localName, text.toString());
+        if (text != null) {
+            writer.writeAttribute(localName, text.toString());
+        }
     }
 
-    private void writeElement(String prefix, String localName, String namespaceURI, String text, BufferingXMLStreamWriter writer, MarshallingContext context) throws XMLStreamException {
-        writer.writeStartElement(prefix, localName, namespaceURI);
+    private void writeElement(String prefix, String localName, String text, BufferingXMLStreamWriter writer) throws XMLStreamException {
+        writer.writeStartElement(prefix, localName, null);
         writer.writeCharacters(text);
         writer.writeEndElement();
     }
 
-    private void writeElement(String localName, String text, BufferingXMLStreamWriter writer, MarshallingContext context) throws XMLStreamException {
-        writeElement(null, localName, null, text, writer, context);
-    }
-
-    private void writeElement(String namespaceURI, String localName, String text, BufferingXMLStreamWriter writer, MarshallingContext context) throws XMLStreamException {
-        writeElement(null, localName, namespaceURI, text, writer, context);
+    private void writeElement(String localName, String text, BufferingXMLStreamWriter writer) throws XMLStreamException {
+        writeElement(null, localName, text, writer);
     }
 
     private String isoTime(Date date) {
@@ -258,14 +266,10 @@ public class MRSSMarshaller implements Marshaller {
         writer.writeEndDocument();
     }
 
-    private void declareNamespaces(Collection<Namespace> namespaces, XMLStreamWriter writer) throws MarshallingException, XMLStreamException {
-        Iterator i$ = namespaces.iterator();
-
-        while (i$.hasNext()) {
-            Namespace namespace = (Namespace) i$.next();
-            writer.setPrefix(namespace.getPrefix(), namespace.getUri());
-            writer.writeNamespace(namespace.getPrefix(), namespace.getUri());
+    private void declareNamespaces(Map<String, String> namespaces, XMLStreamWriter writer) throws MarshallingException, XMLStreamException {
+        for (Map.Entry<String, String> namespace : namespaces.entrySet()) {
+            writer.setPrefix(namespace.getKey(), namespace.getValue());
+            writer.writeNamespace(namespace.getKey(), namespace.getValue());
         }
-
     }
 }

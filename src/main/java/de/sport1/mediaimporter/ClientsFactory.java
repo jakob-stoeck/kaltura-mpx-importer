@@ -3,6 +3,8 @@ package de.sport1.mediaimporter;
 import com.kaltura.client.KalturaClient;
 import com.kaltura.client.KalturaConfiguration;
 import com.kaltura.client.enums.KalturaSessionType;
+import com.theplatform.authentication.token.api.exception.AuthenticationException;
+import com.theplatform.authentication.token.api.exception.UserDisabledException;
 import com.theplatform.data.api.client.ClientConfiguration;
 import com.theplatform.data.api.marshalling.PayloadForm;
 import com.theplatform.fms.api.client.FileManagementClient;
@@ -13,6 +15,7 @@ import com.theplatform.module.authentication.client.AuthenticationClient;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.Properties;
 
@@ -26,6 +29,7 @@ class ClientsFactory {
     private Properties properties;
     private String kalturaSessionId;
     private KalturaConfiguration kalturaConfiguration;
+    private AuthenticationClient mpxAuthClient;
     private int kalturaPartnerId;
 
     ClientsFactory() throws Exception {
@@ -57,14 +61,15 @@ class ClientsFactory {
         kalturaClient.setSessionId(kalturaSessionId);
     }
 
-    private void authMpx() throws UnknownHostException {
-        AuthenticationClient mpxAuthClient = new AuthenticationClient(
+    private void authMpx() throws UnknownHostException, UserDisabledException, AuthenticationException {
+        mpxAuthClient = new AuthenticationClient(
                 properties.getProperty("mpx.baseUrl"),
                 properties.getProperty("mpx.user"),
                 properties.getProperty("mpx.password"),
                 new String[]{properties.getProperty("mpx.accountId")}
         );
         mpxAuthClient.setTokenDuration(authSessionExpiry * 1000L);
+        mpxAuthClient.getToken(); // fills user information into auth client
         ClientConfiguration mpxDataConfig = new ClientConfiguration();
         mpxDataConfig.setStreamingResults(true);
         mpxDataConfig.setPayloadForm(PayloadForm.JSON);
@@ -91,6 +96,10 @@ class ClientsFactory {
         return client;
     }
 
+    AuthenticationClient getMpxAuthClient() {
+        return mpxAuthClient;
+    }
+
     MediaClient getMpxMediaClient() {
         return mpxMediaClient;
     }
@@ -105,5 +114,9 @@ class ClientsFactory {
 
     ReleaseClient getMpxReleaseClient() {
         return mpxReleaseClient;
+    }
+
+    URI getMpxUserId() {
+        return URI.create(mpxAuthClient.getUserId());
     }
 }
