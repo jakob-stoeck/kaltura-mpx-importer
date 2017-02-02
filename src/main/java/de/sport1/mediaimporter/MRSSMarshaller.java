@@ -159,9 +159,9 @@ public class MRSSMarshaller implements Marshaller {
         writeElement("title", entry.getTitle(), writer);
         writeElement("description", entry.getDescription(), writer);
         writeElement("media", "keywords", entry.getKeywords(), writer);
-//        if (entry.getExpirationDate() != null) {
-//            writeElement("dcterms", "valid", "http://purl.org/dc/terms/", "todo", writer, context);
-//        }
+        if (entry.getAvailableDate() != null && entry.getExpirationDate() != null) {
+            writeElement("dcterms", "valid", String.format("start=%s;end=%s;scheme=W3C-DTF", isoTime(entry.getAvailableDate()), isoTime(entry.getExpirationDate())), writer);
+        }
         if (entry.getCategoryIds() != null) {
             for (URI uri : entry.getCategoryIds()) {
                 writeElement("media", "categoryId", uri.toString(), writer);
@@ -180,7 +180,7 @@ public class MRSSMarshaller implements Marshaller {
             writeElement("plmedia", "restrictionId", entry.getRestrictionId().toString(), writer);
         }
         if (entry.getPubDate() != null) {
-            writeElement("pubDate", isoTime(entry.getPubDate()), writer);
+            writeElement("pubDate", rssTime(entry.getPubDate()), writer);
         }
         if (entry.getContent() != null) {
             writer.writeStartElement("media", "group", null);
@@ -214,7 +214,7 @@ public class MRSSMarshaller implements Marshaller {
             writer.writeAttribute("method", "Copy");
             writer.writeEndElement();
             writer.writeStartElement("plingestmf", "ingestOptions", null);
-            writer.writeAttribute("requiredPath", String.format("%s/%s.jpg", entry.getGuid(), entry.getGuid()));
+            writer.writeAttribute("requiredPath", String.format("%s.jpg", entry.getGuid()));
             writer.writeEndElement();
             writer.writeEndElement();
         }
@@ -248,9 +248,16 @@ public class MRSSMarshaller implements Marshaller {
         writeElement(null, localName, text, writer);
     }
 
-    private String isoTime(Date date) {
+    private String rssTime(Date date) {
         TimeZone tz = TimeZone.getTimeZone("GMT");
         DateFormat df = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss z"); // @todo which time zone do we get? is it correct to transform here?
+        df.setTimeZone(tz);
+        return df.format(date);
+    }
+
+    private String isoTime(Date date) {
+        TimeZone tz = TimeZone.getTimeZone("GMT");
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
         df.setTimeZone(tz);
         return df.format(date);
     }

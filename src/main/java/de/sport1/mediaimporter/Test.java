@@ -36,12 +36,12 @@ public class Test {
 
         // authentication
         ClientsFactory clients = new ClientsFactory();
-        URI mpxUserId = clients.getMpxUserId();
-        CategoryImporter categoryImporter = new CategoryImporter(clients);
+//        URI mpxUserId = clients.getMpxUserId();
+//        CategoryImporter categoryImporter = new CategoryImporter(clients);
 
-//        deleteAllMyEntries(clients.getMpxCategoryClient(), mpxUserId);
+//        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
 //        categoryImporter.importCategories();
-        importMedia(clients, 101);
+        importMedia(clients);
     }
 
     private static void importTagsAsCategories(CategoryImporter categoryImporter) throws Exception {
@@ -54,13 +54,13 @@ public class Test {
 //        clients.getMpxFileManagementClient().getService().deleteMedia();
 //    }
 //
-    private static void deleteAllMyEntries(DataServiceClient client, URI userId) {
+    private static void deleteAllEntriesFromUser(DataServiceClient client, URI userId) {
         Query[] queries = new Query[]{new ByAddedByUserId(userId)};
         client.delete(queries);
     }
 
-    private static void importMedia(ClientsFactory clients, int max) throws Exception {
-        String user = "http://access.auth.theplatform.com/data/Account/2691223865";
+    private static void importMedia(ClientsFactory clients) throws Exception {
+        String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
         String pass = clients.getMpxMediaClient().getAuthorization().getToken();
         PersistenceStrategy persistenceStrategy = new HttpStrategy(user, pass);
         FeedProvider feedProvider = new FeedProvider(clients);
@@ -72,7 +72,7 @@ public class Test {
         filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-17T00:00:00+00:00").getTime() / 1000);
         filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-01-17T23:59:59+00:00").getTime() / 1000);
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = max;
+        pager.pageSize = 500;
         pager.pageIndex = 1;
 
         // migration

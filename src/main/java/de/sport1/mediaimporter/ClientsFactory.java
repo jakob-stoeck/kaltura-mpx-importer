@@ -6,7 +6,6 @@ import com.kaltura.client.enums.KalturaSessionType;
 import com.theplatform.authentication.token.api.exception.AuthenticationException;
 import com.theplatform.authentication.token.api.exception.UserDisabledException;
 import com.theplatform.data.api.client.ClientConfiguration;
-import com.theplatform.data.api.marshalling.PayloadForm;
 import com.theplatform.fms.api.client.FileManagementClient;
 import com.theplatform.media.api.client.CategoryClient;
 import com.theplatform.media.api.client.MediaClient;
@@ -31,6 +30,8 @@ class ClientsFactory {
     private KalturaConfiguration kalturaConfiguration;
     private AuthenticationClient mpxAuthClient;
     private int kalturaPartnerId;
+    private ClientConfiguration mpxDataConfig;
+    private String dataBaseUrl = "https://data.media.theplatform.eu/media";
 
     ClientsFactory() throws Exception {
         String filename = "importer.properties";
@@ -42,7 +43,15 @@ class ClientsFactory {
         properties.load(inputStream);
         authKaltura();
         authMpx();
+
+        mpxMediaClient = new MediaClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
+        mpxReleaseClient = new ReleaseClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
+        mpxCategoryClient = new CategoryClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
+
+        String webBaseUrl = "https://fms.theplatform.eu";
+        mpxFileManagementClient = new FileManagementClient(webBaseUrl, mpxAuthClient);
     }
+
 
     private void authKaltura() throws Exception {
         kalturaConfiguration = new KalturaConfiguration();
@@ -70,17 +79,8 @@ class ClientsFactory {
         );
         mpxAuthClient.setTokenDuration(authSessionExpiry * 1000L);
         mpxAuthClient.getToken(); // fills user information into auth client
-        ClientConfiguration mpxDataConfig = new ClientConfiguration();
+        mpxDataConfig = new ClientConfiguration();
         mpxDataConfig.setStreamingResults(true);
-        mpxDataConfig.setPayloadForm(PayloadForm.JSON);
-        String dataBaseUrl = "http://data.media.theplatform.eu/media";
-        mpxMediaClient = new MediaClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
-        mpxReleaseClient = new ReleaseClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
-        mpxCategoryClient = new CategoryClient(dataBaseUrl, mpxAuthClient, mpxDataConfig);
-
-        com.theplatform.web.api.client.ClientConfiguration mpxWebConfig = new com.theplatform.web.api.client.ClientConfiguration();
-        mpxWebConfig.setPayloadForm(com.theplatform.web.api.marshalling.PayloadForm.JSON);
-        mpxFileManagementClient = new FileManagementClient("http://fms.theplatform.eu", mpxAuthClient, mpxWebConfig);
     }
 
     KalturaClient getKalturaClientUnsafe() {
@@ -98,6 +98,14 @@ class ClientsFactory {
 
     AuthenticationClient getMpxAuthClient() {
         return mpxAuthClient;
+    }
+
+    ClientConfiguration getMpxDataConfig() {
+        return mpxDataConfig;
+    }
+
+    public String getDataBaseUrl() {
+        return dataBaseUrl;
     }
 
     MediaClient getMpxMediaClient() {

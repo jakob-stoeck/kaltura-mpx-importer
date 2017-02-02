@@ -12,7 +12,10 @@ import com.theplatform.media.api.data.objects.Media;
 import com.theplatform.media.api.data.objects.MediaFile;
 
 import java.net.URI;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -21,7 +24,7 @@ class Converter {
     private static final URI serverId = URI.create("http://data.media.theplatform.eu/media/data/Server/80668741206");
     private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/80932421069");
     private static final String playlistScheme = "Playlist";
-
+    private static final Map<Integer, URI> restrictionMap = new HashMap<>();
     static Function<KalturaCategory, Category> convertCategory = kalturaCategory -> {
         Category category = new Category();
         category.setTitle(nullToEmptyString(kalturaCategory.name));
@@ -31,13 +34,22 @@ class Converter {
         category.setScheme(playlistScheme);
         return category;
     };
-
     static Function<String, Category> convertTagToCategory = kalturaTag -> {
         Category category = new Category();
         category.setTitle(kalturaTag);
         category.setScheme("Tag");
         return category;
     };
+
+    static {
+        // Kaltura Access Profile Id -> MPX id
+        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699026")); // Default
+        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699026")); // Global (same as default)
+        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/42651013")); // DE
+        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/45211148")); // DE, AT
+        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/42651014")); // DE, AT, CH
+        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699025")); // DE, AT, CH, LI, LUX
+    }
 
     private static String nullToEmptyString(String s) {
         return s == null ? "" : s;
@@ -78,22 +90,6 @@ class Converter {
         return mediaFile;
     }
 
-    static Media convert(final KalturaMediaEntry kalturaMediaEntry, Map<String, Category> categoryMap) {
-        Media m = convert(kalturaMediaEntry);
-        List<URI> categoryList = new ArrayList<>();
-        if (kalturaMediaEntry.categories != null) {
-            String[] kalturaCategoryIds = kalturaMediaEntry.categoriesIds.split(",");
-            for (String catId : kalturaCategoryIds) {
-                Category found = categoryMap.get(categoryImportId(catId));
-                if (found != null) {
-                    categoryList.add(found.getId());
-                }
-            }
-        }
-        m.setCategoryIds(categoryList.toArray(new URI[0]));
-        return m;
-    }
-
     static Media convert(final KalturaMediaEntry kalturaMediaEntry) {
         Media media = new Media();
         media.setDescription(nullToEmptyString(kalturaMediaEntry.description));
@@ -107,6 +103,9 @@ class Converter {
         Stream<CategoryInfo> playlist = Arrays.stream(kalturaMediaEntry.categories.split(","))
                 .map(e -> convertCategoryInfo(e, playlistScheme));
         media.setCategories(playlist.toArray(CategoryInfo[]::new));
+        if (kalturaMediaEntry.accessControlId > 0) {
+            media.setRestrictionId(restrictionMap.get(kalturaMediaEntry.accessControlId));
+        }
         return media;
     }
 

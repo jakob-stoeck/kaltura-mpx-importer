@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dcterms="http://purl.org/dc/terms/"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:plfile="http://xml.theplatform.com/media/data/MediaFile"
+     xmlns:plmedia="http://xml.theplatform.com/media/data/Media"
+     xmlns:plingestmf="http://xml.theplatform.com/ingest/data/IngestMediaFile"
+     xmlns:plingestm="http://xml.theplatform.com/ingest/data/IngestMedia"
+     version="2.0"
+>
+    <channel>
+        <item xmlns:sport1="http://www.sport1.de/fields">
+            <guid isPermaLink="false">0_ddh89px1</guid>
+            <title>EU LCS - W1D2 - FNC VS VIT</title>
+            <description>Am zweiten Spieltag der des League of Legends Summer Split trafen Fnatic und Team Vitality in
+                einem Best-of-2 Match aufeinander. SPORT1 zeigt die Highlights der Spiele im Überblick und berichtet,
+                welches Team sich wie viele Punkte ergattern konnte.
+            </description>
+            <dcterms:valid>start=2014-11-10T06:00:00Z;end=2020-02-07T05:59:59Z;scheme=W3C-DTF</dcterms:valid>
+            <media:category scheme="Import" label="eSports">eSports</media:category>
+            <media:category scheme="Import" label="League of Legends">eSports/eSports>League of Legends</media:category>
+            <plmedia:restrictionId>http://restrictionId</plmedia:restrictionId>
+            <pubDate>Tue, 07 Jun 2016 08:48:21 GMT</pubDate>
+            <media:group>
+                <media:content xmlns:sport1="http://www.sport1.de/fields" fileSize="8044009" framerate="24.0"
+                               duration="98.167" bitrate="600" height="360" width="640">
+                    <plfile:assetType>Progressive MP4</plfile:assetType>
+                    <plfile:serverId>http://data.media.theplatform.eu/media/data/Server/33349189047</plfile:serverId>
+                    <plfile:sourceUrl>/path/rendition1.mp4</plfile:sourceUrl>
+                    <plfile:aspectRatio>1.78</plfile:aspectRatio>
+                    <plfile:displayAspectRatio>16:9</plfile:displayAspectRatio>
+                    <plingestmf:ingestOptions method="Manage"/>
+                </media:content>
+                <media:content xmlns:sport1="http://www.sport1.de/fields" fileSize="15658081" framerate="24.0"
+                               duration="98.167" bitrate="1200" height="540" width="960">
+                    <plfile:assetType>Progressive MP4</plfile:assetType>
+                    <plfile:serverId>http://data.media.theplatform.eu/media/data/Server/33349189047</plfile:serverId>
+                    <plfile:sourceUrl>/path/rendition2.mp4</plfile:sourceUrl>
+                    <plfile:aspectRatio>1.78</plfile:aspectRatio>
+                    <plfile:displayAspectRatio>16:9</plfile:displayAspectRatio>
+                    <plingestmf:ingestOptions method="Manage"/>
+                </media:content>
+            </media:group>
+            <media:thumbnail>
+                <plfile:assetType>Thumbnail</plfile:assetType>
+                <plfile:serverId>http://data.media.theplatform.eu/media/data/Server/ID</plfile:serverId>
+                <plfile:sourceUrl>
+                    http://api.medianac.com/p/120/sp/12000/thumbnail/entry_id/0_ddh89px1/width/640/height/480
+                </plfile:sourceUrl>
+                <plingestmf:ingestOptions method="Copy"/>
+                <plingestmf:ingestOptions requiredPath="0_ddh89px1/0_ddh89px1.jpg"/>
+            </media:thumbnail>
+            <plingestm:workflowOption>
+                <plingestm:service>publish</plingestm:service>
+                <plingestm:method>publish</plingestm:method>
+                <plingestm:argument>
+                    <plingestm:key>profile</plingestm:key>
+                    <plingestm:value>Add releases to progressive MP4 files</plingestm:value>
+                </plingestm:argument>
+            </plingestm:workflowOption>
+            <sport1:sourceSystemId xsi:type="xsd:string">0_ddh89px1</sport1:sourceSystemId>
+        </item>
+    </channel>
+</rss>
