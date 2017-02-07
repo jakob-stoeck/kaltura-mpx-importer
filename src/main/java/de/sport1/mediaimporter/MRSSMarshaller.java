@@ -153,7 +153,7 @@ public class MRSSMarshaller implements Marshaller {
     private void writeItem(Media entry, BufferingXMLStreamWriter writer, MarshallingContext context) throws XMLStreamException {
         // this is _nearly_ correct in RSSMarshaller.class
         writer.writeStartElement("guid");
-        writer.writeAttribute("isPermalink", "false");
+        writer.writeAttribute("isPermaLink", "false");
         writer.writeCharacters(entry.getGuid());
         writer.writeEndElement();
         writeElement("title", entry.getTitle(), writer);
@@ -170,7 +170,7 @@ public class MRSSMarshaller implements Marshaller {
         if (entry.getCategories() != null) {
             for (CategoryInfo c : entry.getCategories()) {
                 writer.writeStartElement("media", "category", null);
-                writeAttribute("scheme", c.getScheme(), writer);
+                writeAttribute("scheme", "urn:Sport1:" + c.getScheme(), writer);
                 writeAttribute("label", c.getLabel(), writer);
                 writer.writeCharacters(c.getName());
                 writer.writeEndElement();
@@ -186,7 +186,7 @@ public class MRSSMarshaller implements Marshaller {
             writer.writeStartElement("media", "group", null);
             for (MediaFile mf : entry.getContent()) {
                 writer.writeStartElement("media", "content", null);
-                writeAttribute("filesize", mf.getFileSize(), writer);
+                writeAttribute("fileSize", mf.getFileSize(), writer);
                 writeAttribute("framerate", mf.getFrameRate(), writer);
                 writeAttribute("duration", mf.getDuration(), writer);
                 writeAttribute("bitrate", mf.getBitrate(), writer);
@@ -222,7 +222,7 @@ public class MRSSMarshaller implements Marshaller {
         writeElement("plingestm", "service", "publish", writer);
         writeElement("plingestm", "method", "publish", writer);
         writer.writeStartElement("plingestm", "argument", null);
-        writeElement("plingestm", "key", writer);
+        writeElement("plingestm", "key", "profile", writer);
         writeElement("plingestm", "value", "Add releases to progressive MP4 files", writer);
         writer.writeEndElement();
         writer.writeEndElement();
