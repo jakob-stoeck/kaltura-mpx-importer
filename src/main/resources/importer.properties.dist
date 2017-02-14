@@ -5,3 +5,4 @@ kaltura.user=changethis
 mpx.baseUrl=https://identity.auth.theplatform.eu/idm
 mpx.user=mpx/changethis
 mpx.password=changethis
+mpx.accountId=changethis

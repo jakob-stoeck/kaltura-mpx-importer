@@ -21,8 +21,8 @@ import java.util.stream.Stream;
 
 class Converter {
     static final String downloadUrlPrefix = "https://pmds.sport1.de";
-    private static final URI serverId = URI.create("http://data.media.theplatform.eu/media/data/Server/80668741206");
-    private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/80932421069");
+    private static final URI serverId = URI.create("http://data.media.theplatform.eu/media/data/Server/81888325034");
+    private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/81888325033");
     private static final String playlistScheme = "Playlist";
     private static final Map<Integer, URI> restrictionMap = new HashMap<>();
     static Function<KalturaCategory, Category> convertCategory = kalturaCategory -> {
