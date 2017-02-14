@@ -37,7 +37,7 @@ public class HttpStrategy implements PersistenceStrategy {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         mrss.marshal(list, byteArrayOutputStream, marshallingContext);
         String xml = byteArrayOutputStream.toString();
-        System.out.println(xml);
+//        System.out.println(xml);
         System.out.print("persisting ... ");
 
         String urlString = String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass);

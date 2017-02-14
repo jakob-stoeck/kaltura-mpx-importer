@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class Test {
+public class Importer {
 
     public static void main(String[] args) throws Exception {
         // logging
@@ -33,7 +33,10 @@ public class Test {
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
         Logger rootLogger = lc.getLogger(Logger.ROOT_LOGGER_NAME);
         rootLogger.setLevel(Level.ERROR);
+        migrate();
+    }
 
+    private static void migrate() throws Exception {
         // authentication
         ClientsFactory clients = new ClientsFactory();
 //        URI mpxUserId = clients.getMpxUserId();
@@ -49,11 +52,17 @@ public class Test {
         categoryImporter.importTagsAsCategories();
     }
 
-    //    private static void deleteAllMedia(ClientsFactory clients) {
 //    @todo
+//    private static void deleteAllMedia(ClientsFactory clients) {
 //        clients.getMpxFileManagementClient().getService().deleteMedia();
 //    }
-//
+
+    /**
+     * Deletes all entries of a given DataServiceClient which are created by a certain user
+     *
+     * @param client e.g. CategoryClient
+     * @param userId only elements which were created by this user are deleted
+     */
     private static void deleteAllEntriesFromUser(DataServiceClient client, URI userId) {
         Query[] queries = new Query[]{new ByAddedByUserId(userId)};
         client.delete(queries);
@@ -69,15 +78,22 @@ public class Test {
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-        filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-17T00:00:00+00:00").getTime() / 1000);
-        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-01-17T23:59:59+00:00").getTime() / 1000);
+        filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
+        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-12T23:59:59+00:00").getTime() / 1000);
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = 500;
-        pager.pageIndex = 1;
+        pager.pageSize = 100;
 
-        // migration
-        Feed<Media> feed = feedProvider.get(filter, pager);
-        persistenceStrategy.persist(feed);
+        int i = 1;
+        while (true) {
+            // migration
+            pager.pageIndex = i;
+            Feed<Media> feed = feedProvider.get(filter, pager);
+            if (feed.getEntries().size() == 0)
+                break;
+            persistenceStrategy.persist(feed);
+            i++;
+        }
+        System.out.printf("%nImported %d videos.%n", i);
     }
 
     private static void testMedia() throws MarshallingException {
