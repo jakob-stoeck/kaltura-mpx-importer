@@ -23,12 +23,10 @@ import java.util.stream.Collectors;
  */
 public class HttpStrategy implements PersistenceStrategy {
 
-    private final String user;
-    private final String pass;
+    private final String connection;
 
-    HttpStrategy(String user, String pass) {
-        this.user = user;
-        this.pass = pass;
+    HttpStrategy(String connection) {
+        this.connection = connection;
     }
 
     public <T extends Entry> void persist(Feed<T> list) throws Exception {
@@ -40,8 +38,7 @@ public class HttpStrategy implements PersistenceStrategy {
 //        System.out.println(xml);
         System.out.print("persisting ... ");
 
-        String urlString = String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass);
-        URL url = new URL(urlString);
+        URL url = new URL(connection);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);

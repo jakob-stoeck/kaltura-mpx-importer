@@ -16,6 +16,8 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 class ClientsFactory {
@@ -51,7 +53,6 @@ class ClientsFactory {
         String webBaseUrl = "https://fms.theplatform.eu";
         mpxFileManagementClient = new FileManagementClient(webBaseUrl, mpxAuthClient);
     }
-
 
     private void authKaltura() throws Exception {
         kalturaConfiguration = new KalturaConfiguration();
@@ -98,6 +99,15 @@ class ClientsFactory {
 
     AuthenticationClient getMpxAuthClient() {
         return mpxAuthClient;
+    }
+
+    Map getPlazaFtpAuth() {
+        Map connection = new HashMap<String, String>();
+        connection.put("host", properties.getProperty("pmftp.host"));
+        connection.put("port", properties.getProperty("pmftp.port"));
+        connection.put("user", properties.getProperty("pmftp.user"));
+        connection.put("password", properties.getProperty("pmftp.password"));
+        return connection;
     }
 
     ClientConfiguration getMpxDataConfig() {

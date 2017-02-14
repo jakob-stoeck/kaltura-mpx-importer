@@ -69,9 +69,16 @@ public class Importer {
     }
 
     private static void importMedia(ClientsFactory clients) throws Exception {
-        String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
-        String pass = clients.getMpxMediaClient().getAuthorization().getToken();
-        PersistenceStrategy persistenceStrategy = new HttpStrategy(user, pass);
+//        String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
+//        String pass = clients.getMpxMediaClient().getAuthorization().getToken();
+//        PersistenceStrategy persistenceStrategy = new HttpStrategy(String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass));
+
+        String host = (String) clients.getPlazaFtpAuth().get("host");
+        int port = Integer.parseInt((String) clients.getPlazaFtpAuth().get("port"));
+        String user = (String) clients.getPlazaFtpAuth().get("user");
+        String password = (String) clients.getPlazaFtpAuth().get("password");
+
+        PersistenceStrategy persistenceStrategy = new FtpStrategy(host, port, user, password);
         FeedProvider feedProvider = new FeedProvider(clients);
 
         // which media to importMedia
@@ -79,19 +86,21 @@ public class Importer {
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
         filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
-        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-12T23:59:59+00:00").getTime() / 1000);
+        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-15T23:59:59+00:00").getTime() / 1000);
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = 100;
+        pager.pageSize = 1;
 
         int i = 1;
         while (true) {
             // migration
             pager.pageIndex = i;
             Feed<Media> feed = feedProvider.get(filter, pager);
-            if (feed.getEntries().size() == 0)
+            if (feed.getEntries().size() == 0) {
                 break;
+            }
             persistenceStrategy.persist(feed);
             i++;
+            break;
         }
         System.out.printf("%nImported %d videos.%n", i);
     }
@@ -110,5 +119,4 @@ public class Importer {
         MarshallingContext marshallingContext = new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true);
         mrss.marshal(feed, System.out, marshallingContext);
     }
-
 }
