@@ -1,4 +1,9 @@
 **/.idea/tasks.xml
 **/.idea/workspace.xml
-src/main/resources/importer.properties
+.idea/codeStyleSettings.xml
+.idea/dictionaries/
+.idea/inspectionProfiles/
 .project
+log4j.log
+src/main/resources/importer.properties
+target/

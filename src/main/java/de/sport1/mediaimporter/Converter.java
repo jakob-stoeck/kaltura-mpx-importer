@@ -21,10 +21,11 @@ import java.util.stream.Stream;
 
 class Converter {
     static final String downloadUrlPrefix = "https://pmds.sport1.de";
-    private static final URI serverId = URI.create("http://data.media.theplatform.eu/media/data/Server/80668741206");
-    private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/80932421069");
+    private static final URI serverId = URI.create("http://data.media.theplatform.eu/media/data/Server/81888325034");
+    private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/81888325033");
     private static final String playlistScheme = "Playlist";
     private static final Map<Integer, URI> restrictionMap = new HashMap<>();
+
     static Function<KalturaCategory, Category> convertCategory = kalturaCategory -> {
         Category category = new Category();
         category.setTitle(nullToEmptyString(kalturaCategory.name));
@@ -34,6 +35,7 @@ class Converter {
         category.setScheme(playlistScheme);
         return category;
     };
+
     static Function<String, Category> convertTagToCategory = kalturaTag -> {
         Category category = new Category();
         category.setTitle(kalturaTag);
@@ -66,15 +68,15 @@ class Converter {
         mediaFile.setHeight(flavorAsset.height);
         mediaFile.setWidth(flavorAsset.width);
         mediaFile.setServerId(serverId);
-        mediaFile.setSourceUrl(getSourceUrl(url, true)); // remove hard-coded test parameter for live
+        mediaFile.setSourceUrl(getSourceUrl(url));
         mediaFile.setFileSize((long) flavorAsset.size);
         mediaFile.setAssetTypes(new String[]{"Progressive MP4"});
         mediaFile.setIsThumbnail(false);
         return mediaFile;
     }
 
-    private static String getSourceUrl(String url, boolean test) {
-        return test ? url.substring((downloadUrlPrefix + "/p").length()) : url.substring(downloadUrlPrefix.length());
+    private static String getSourceUrl(String url) {
+        return url.substring(downloadUrlPrefix.length());
     }
 
     static MediaFile thumbnail(final KalturaMediaEntry k) {
@@ -99,10 +101,12 @@ class Converter {
         media.setTitle(nullToEmptyString(kalturaMediaEntry.name));
         media.setApproved(kalturaMediaEntry.moderationStatus == KalturaEntryModerationStatus.APPROVED || kalturaMediaEntry.moderationStatus == KalturaEntryModerationStatus.AUTO_APPROVED);
         media.setGuid(kalturaMediaEntry.id);
-        media.setKeywords(kalturaMediaEntry.tags);
-        Stream<CategoryInfo> playlist = Arrays.stream(kalturaMediaEntry.categories.split(","))
-                .map(e -> convertCategoryInfo(e, playlistScheme));
-        media.setCategories(playlist.toArray(CategoryInfo[]::new));
+        media.setKeywords(nullToEmptyString(kalturaMediaEntry.tags));
+        if (kalturaMediaEntry.categories != null) {
+            Stream<CategoryInfo> playlist = Arrays.stream(kalturaMediaEntry.categories.split(","))
+                    .map(e -> convertCategoryInfo(e, playlistScheme));
+            media.setCategories(playlist.toArray(CategoryInfo[]::new));
+        }
         if (kalturaMediaEntry.accessControlId > 0) {
             media.setRestrictionId(restrictionMap.get(kalturaMediaEntry.accessControlId));
         }

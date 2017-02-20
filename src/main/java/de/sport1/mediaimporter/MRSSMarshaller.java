@@ -198,8 +198,12 @@ public class MRSSMarshaller implements Marshaller {
                 writer.writeAttribute("method", "Manage");
                 writer.writeEndElement();
                 writeElement("plfile", "assetType", String.join(", ", mf.getAssetTypes()), writer);
-                writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
-                writeElement("plfile", "sourceUrl", mf.getSourceUrl(), writer);
+                if (mf.getServerId() != null && Importer.STRATEGY_HTTP == Importer.STRATEGY) {
+                    writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
+                }
+                writeElement("plfile", "sourceUrl", Importer.STRATEGY_FTP == Importer.STRATEGY
+                        ? mf.getSourceUrl().replaceFirst("^/p/", Importer.FTP_PREFIX)
+                        : mf.getSourceUrl(), writer);
                 writer.writeEndElement();
             }
             writer.writeEndElement();
@@ -208,8 +212,12 @@ public class MRSSMarshaller implements Marshaller {
             MediaFile mf = entry.getThumbnails()[0];
             writer.writeStartElement("media", "thumbnail", null);
             writeElement("plfile", "assetType", String.join(", ", mf.getAssetTypes()), writer);
-            writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
-            writeElement("plfile", "sourceUrl", mf.getSourceUrl(), writer);
+            if (mf.getServerId() != null && Importer.STRATEGY_HTTP == Importer.STRATEGY) {
+                writeElement("plfile", "serverId", mf.getServerId().toString(), writer);
+            }
+            writeElement("plfile", "sourceUrl", Importer.STRATEGY_FTP == Importer.STRATEGY
+                    ? mf.getSourceUrl().replaceFirst("^/p/", Importer.FTP_PREFIX)
+                    : mf.getSourceUrl(), writer);
             writer.writeStartElement("plingestmf", "ingestOptions", null);
             writer.writeAttribute("method", "Copy");
             writer.writeEndElement();
@@ -222,7 +230,7 @@ public class MRSSMarshaller implements Marshaller {
         writeElement("plingestm", "service", "publish", writer);
         writeElement("plingestm", "method", "publish", writer);
         writer.writeStartElement("plingestm", "argument", null);
-        writeElement("plingestm", "key", "profile", writer);
+        writeElement("plingestm", "key", writer);
         writeElement("plingestm", "value", "Add releases to progressive MP4 files", writer);
         writer.writeEndElement();
         writer.writeEndElement();
