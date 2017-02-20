@@ -31,15 +31,17 @@ public class FtpStrategy implements PersistenceStrategy {
         this.password = password;
     }
 
-    public <T extends Entry> void persist(Feed<T> list) throws Exception {
-        // @todo: Note the slight change to the sourceUrl element (s/http/ftp/) and the removal of the serverId element.
-        // @todo: put daywise
-        // https://theplatform.jira.com/browse/PLAZ-74?focusedCommentId=121592&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-121592
+    public <T extends Entry> void persist(Feed<T> list, String date) throws Exception {
         Marshaller mrss = new MRSSMarshaller();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         mrss.marshal(list, stream, new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true));
         byte[] bytes = stream.toByteArray();
-        String filename = String.format("%s.xml", new BigInteger(1, MessageDigest.getInstance("MD5").digest(bytes)).toString(16));
+        // in case of two or more mrss files on ftp for one day: add md5 hash
+        String filename = String.format(
+                "%s-%s.mrss",
+                date,
+                new BigInteger(1, MessageDigest.getInstance("MD5").digest(bytes)).toString(16)
+        );
 
         FtpClient
                 .create()

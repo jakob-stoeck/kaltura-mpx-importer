@@ -29,7 +29,7 @@ public class HttpStrategy implements PersistenceStrategy {
         this.connection = connection;
     }
 
-    public <T extends Entry> void persist(Feed<T> list) throws Exception {
+    public <T extends Entry> void persist(Feed<T> list, String ignore) throws Exception {
         Marshaller mrss = new MRSSMarshaller();
         MarshallingContext marshallingContext = new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true);
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
