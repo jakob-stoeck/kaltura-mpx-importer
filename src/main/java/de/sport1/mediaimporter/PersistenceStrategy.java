@@ -5,5 +5,5 @@ import com.theplatform.data.api.objects.Feed;
 
 public interface PersistenceStrategy {
 
-    <T extends Entry> void persist(Feed<T> feed) throws Exception;
+    <T extends Entry> void persist(Feed<T> feed, String prefix) throws Exception;
 }

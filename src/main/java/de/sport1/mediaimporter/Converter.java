@@ -25,6 +25,7 @@ class Converter {
     private static final URI serverIdThumbs = URI.create("http://data.media.theplatform.eu/media/data/Server/81888325033");
     private static final String playlistScheme = "Playlist";
     private static final Map<Integer, URI> restrictionMap = new HashMap<>();
+
     static Function<KalturaCategory, Category> convertCategory = kalturaCategory -> {
         Category category = new Category();
         category.setTitle(nullToEmptyString(kalturaCategory.name));
@@ -34,6 +35,7 @@ class Converter {
         category.setScheme(playlistScheme);
         return category;
     };
+
     static Function<String, Category> convertTagToCategory = kalturaTag -> {
         Category category = new Category();
         category.setTitle(kalturaTag);

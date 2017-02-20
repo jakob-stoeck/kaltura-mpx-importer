@@ -21,11 +21,15 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 public class Importer {
+
+    final static int MAX_MRSS_IMPORT_FILES = 200;
+    final static int STRATEGY_FTP = 1;
+    final static int STRATEGY_HTTP = 2;
+    final static int STRATEGY = Importer.STRATEGY_FTP;
+    final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
 
     public static void main(String[] args) throws Exception {
         // logging
@@ -69,9 +73,22 @@ public class Importer {
     }
 
     private static void importMedia(ClientsFactory clients) throws Exception {
-        String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
-        String pass = clients.getMpxMediaClient().getAuthorization().getToken();
-        PersistenceStrategy persistenceStrategy = new HttpStrategy(user, pass);
+        PersistenceStrategy persistenceStrategy;
+
+        if (Importer.STRATEGY_HTTP == Importer.STRATEGY) {
+            String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
+            String pass = clients.getMpxMediaClient().getAuthorization().getToken();
+            persistenceStrategy = new HttpStrategy(String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass));
+        }
+
+        if (Importer.STRATEGY_FTP == Importer.STRATEGY) {
+            String host = (String) clients.getPlazaFtpAuth().get("host");
+            int port = Integer.parseInt((String) clients.getPlazaFtpAuth().get("port"));
+            String user = (String) clients.getPlazaFtpAuth().get("user");
+            String password = (String) clients.getPlazaFtpAuth().get("password");
+            persistenceStrategy = new FtpStrategy(host, port, user, password);
+        }
+
         FeedProvider feedProvider = new FeedProvider(clients);
 
         // which media to importMedia
@@ -79,21 +96,44 @@ public class Importer {
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
         filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
-        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-12T23:59:59+00:00").getTime() / 1000);
+        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-15T23:59:59+00:00").getTime() / 1000);
         KalturaFilterPager pager = new KalturaFilterPager();
         pager.pageSize = 100;
 
         int i = 1;
-        while (true) {
-            // migration
+        int k = 0;
+        while (k < Importer.MAX_MRSS_IMPORT_FILES) {
             pager.pageIndex = i;
             Feed<Media> feed = feedProvider.get(filter, pager);
-            if (feed.getEntries().size() == 0)
-                break;
-            persistenceStrategy.persist(feed);
+            HashMap<String, Feed> grouped = groupByDay(feed);
+
+            for (String date : grouped.keySet()) {
+                if (grouped.get(date).getEntries().size() > 0) {
+                    persistenceStrategy.persist(grouped.get(date), date);
+                    k++;
+                }
+            }
             i++;
+            break;
         }
-        System.out.printf("%nImported %d videos.%n", i);
+        System.out.println(String.format("Persisted %d feeds", k));
+    }
+
+    private static HashMap<String, Feed> groupByDay(Feed<Media> feed) {
+        HashMap<String, Feed> result = new HashMap<>();
+        Iterator<Media> iterator = feed.getEntries().iterator();
+        while (iterator.hasNext()) {
+            Media media = iterator.next();
+            String date = new SimpleDateFormat("YYYY-MM-dd").format(media.getPubDate());
+            Feed<Media> before = result.get(date);
+            Feed<Media> current = new Feed<>();
+            if (before != null) {
+                current.setEntries(before.getEntries());
+            }
+            current.getEntries().add(media);
+            result.put(date, current);
+        }
+        return result;
     }
 
     private static void testMedia() throws MarshallingException {
@@ -110,5 +150,4 @@ public class Importer {
         MarshallingContext marshallingContext = new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true);
         mrss.marshal(feed, System.out, marshallingContext);
     }
-
 }
