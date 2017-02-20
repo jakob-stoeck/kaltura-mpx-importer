@@ -101,6 +101,7 @@ public class Importer {
         KalturaFilterPager pager = new KalturaFilterPager();
         pager.pageSize = 100;
 
+        // @todo: add throttling. both mpx and kaltura need it
         int i = 1;
         int k = 0;
         while (k < Importer.MAX_MRSS_IMPORT_FILES) {
