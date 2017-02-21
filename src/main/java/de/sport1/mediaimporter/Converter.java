@@ -45,12 +45,12 @@ class Converter {
 
     static {
         // Kaltura Access Profile Id -> MPX id
-        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699026")); // Default
-        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699026")); // Global (same as default)
-        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/42651013")); // DE
-        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/45211148")); // DE, AT
-        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/42651014")); // DE, AT, CH
-        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/44699025")); // DE, AT, CH, LI, LUX
+        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Default
+        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Global (same as default)
+        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234750")); // DE
+        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234749")); // DE, AT
+        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234751")); // DE, AT, CH
+        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234748")); // DE, AT, CH, LI, LUX
     }
 
     private static String nullToEmptyString(String s) {
