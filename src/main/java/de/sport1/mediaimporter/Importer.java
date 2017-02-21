@@ -78,6 +78,7 @@ public class Importer {
         client.delete(queries);
     }
 
+    // @todo: query the kaltura api daywise? -> in smaller chunks anyway
     private static void importMedia(ClientsFactory clients) throws Exception {
         PersistenceStrategy persistenceStrategy;
 
