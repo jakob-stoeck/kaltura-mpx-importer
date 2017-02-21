@@ -26,6 +26,8 @@ import java.util.*;
 public class Importer {
 
     final static int MAX_MRSS_IMPORT_FILES = 200;
+    final static int KALTURA_PAGESIZE_LIMIT = 500;
+    final static int PERSIST_THROTTLE = 30000;
     final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
 
     final static int STRATEGY_FTP = 1;
@@ -44,11 +46,14 @@ public class Importer {
     private static void migrate() throws Exception {
         // authentication
         ClientsFactory clients = new ClientsFactory();
-//        URI mpxUserId = clients.getMpxUserId();
-//        CategoryImporter categoryImporter = new CategoryImporter(clients);
+        URI mpxUserId = clients.getMpxUserId();
+        CategoryImporter categoryImporter = new CategoryImporter(clients);
 
-//        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
-//        categoryImporter.importCategories();
+        // @todo: remove
+        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
+        // @todo: remove
+        categoryImporter.importCategories();
+
         importMedia(clients);
     }
 
@@ -99,25 +104,43 @@ public class Importer {
         filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
         filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-15T23:59:59+00:00").getTime() / 1000);
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = 100;
+        pager.pageSize = Importer.KALTURA_PAGESIZE_LIMIT;
 
-        // @todo: add throttling. both mpx and kaltura need it
-        int i = 1;
-        int k = 0;
-        while (k < Importer.MAX_MRSS_IMPORT_FILES) {
-            pager.pageIndex = i;
+        int pageIndex = 1;
+        int entryCount = 0;
+        int persistCount = 0;
+
+        while (true) {
+            pager.pageIndex = pageIndex;
             Feed<Media> feed = feedProvider.get(filter, pager);
+            int count = feed.getEntries().size();
+
+            if (count == 0) {
+                break;
+            }
+
             HashMap<String, Feed> grouped = groupByDay(feed);
 
             for (String date : grouped.keySet()) {
-                if (grouped.get(date).getEntries().size() > 0) {
-                    persistenceStrategy.persist(grouped.get(date), date);
-                    k++;
+                Feed group = grouped.get(date);
+                int groupCount = group.getEntries().size();
+                if (groupCount > 0) {
+                    if (Importer.PERSIST_THROTTLE > 0
+                            && persistCount > 0
+                            && persistCount % Importer.MAX_MRSS_IMPORT_FILES == 0) {
+                        System.out.println("Throttling");
+                        Thread.sleep(Importer.PERSIST_THROTTLE);
+                    }
+                    persistCount += 1;
+                    entryCount += groupCount;
+                    System.out.println(String.format("Going: persisting %d entries in %d puts", entryCount, persistCount));
+                    persistenceStrategy.persist(group, date);
                 }
             }
-            i++;
+            pageIndex++;
+//            break; // @todo: remove
         }
-        System.out.println(String.format("Persisted %d feeds", k));
+        System.out.println(String.format("Complete: persisted %d entries in %d puts", entryCount, persistCount));
     }
 
     private static HashMap<String, Feed> groupByDay(Feed<Media> feed) {

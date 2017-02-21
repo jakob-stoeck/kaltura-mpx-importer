@@ -18,7 +18,6 @@ import java.security.MessageDigest;
  * Persists a Feed via FTP put
  */
 public class FtpStrategy implements PersistenceStrategy {
-
     private final String host;
     private final int port;
     private final String user;

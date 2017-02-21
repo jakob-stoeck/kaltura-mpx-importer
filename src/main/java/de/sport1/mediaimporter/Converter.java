@@ -30,6 +30,7 @@ class Converter {
         Category category = new Category();
         category.setTitle(nullToEmptyString(kalturaCategory.name));
         category.setFullTitle(kalturaFullCatNameToMpx(nullToEmptyString(kalturaCategory.fullName)));
+//        category.setGuid(categoryImportId(kalturaCategory.id + "_dev")); // @todo: remove stupid suffix
         category.setGuid(categoryImportId(kalturaCategory.id));
         category.setDescription(nullToEmptyString(kalturaCategory.description));
         category.setScheme(playlistScheme);

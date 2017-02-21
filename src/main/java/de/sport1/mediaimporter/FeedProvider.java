@@ -59,6 +59,7 @@ class FeedProvider {
                 }
             }
         } catch (KalturaApiException e) {
+            System.err.println(String.format("Error when importing %s", k.id));
             e.printStackTrace();
         }
         return new MediaFile();
