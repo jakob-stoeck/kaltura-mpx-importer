@@ -19,15 +19,19 @@ import com.theplatform.media.api.data.objects.Media;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 public class Importer {
 
-    final static int MAX_MRSS_IMPORT_FILES = 200;
     final static int KALTURA_PAGESIZE_LIMIT = 500;
-    final static int PERSIST_THROTTLE = 30000;
+    final static int PERSIST_THROTTLE = 10000;
+    final static int PERSIST_THROTTLE_THRESHOLD = 500;
+    final static int PERSIST_DAYS_IN_ONE_GO = 1;
     final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
 
     final static int STRATEGY_FTP = 1;
@@ -52,7 +56,7 @@ public class Importer {
         // @todo: remove
         deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
         // @todo: remove
-        categoryImporter.importCategories();
+//        categoryImporter.importCategories();
 
         importMedia(clients);
     }
@@ -78,7 +82,6 @@ public class Importer {
         client.delete(queries);
     }
 
-    // @todo: query the kaltura api daywise? -> in smaller chunks anyway
     private static void importMedia(ClientsFactory clients) throws Exception {
         PersistenceStrategy persistenceStrategy;
 
@@ -98,67 +101,63 @@ public class Importer {
 
         FeedProvider feedProvider = new FeedProvider(clients);
 
-        // which media to importMedia
+        LocalDate date = LocalDate.now();
+//        LocalDate stop = LocalDate.of(2009, 1, 1);
+        LocalDate stop = LocalDate.of(2017, 1, 1);
+        long throttleThreshold = Importer.PERSIST_THROTTLE_THRESHOLD;
+
+        do {
+            Date end = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            date = date.minusDays(PERSIST_DAYS_IN_ONE_GO);
+            Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            long importedMedia = importInterval(start, end, feedProvider, persistenceStrategy);
+            throttleThreshold -= importedMedia;
+            System.out.println(String.format(
+                    "%d\t%s\t%s",
+                    importedMedia,
+                    new SimpleDateFormat("YYYY-MM-dd").format(start),
+                    new SimpleDateFormat("YYYY-MM-dd").format(end)
+            ));
+            if (throttleThreshold < 0) {
+                System.out.println("Throttling");
+                throttleThreshold = Importer.PERSIST_THROTTLE_THRESHOLD;
+                Thread.sleep(Importer.PERSIST_THROTTLE);
+            }
+        } while (date.compareTo(stop) > 0);
+    }
+
+    private static long importInterval(
+            Date start,
+            Date end,
+            FeedProvider feedProvider,
+            PersistenceStrategy persistenceStrategy
+    ) throws Exception {
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-        filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
-        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-15T23:59:59+00:00").getTime() / 1000);
+        filter.createdAtGreaterThanOrEqual = (int) start.getTime() / 1000;
+        filter.createdAtLessThanOrEqual = (int) end.getTime() / 1000 - 1;
         KalturaFilterPager pager = new KalturaFilterPager();
         pager.pageSize = Importer.KALTURA_PAGESIZE_LIMIT;
 
+        long importedMedia = 0;
         int pageIndex = 1;
-        int entryCount = 0;
-        int persistCount = 0;
 
         while (true) {
             pager.pageIndex = pageIndex;
             Feed<Media> feed = feedProvider.get(filter, pager);
-            int count = feed.getEntries().size();
-
-            if (count == 0) {
+            if (feed.getEntries().size() == 0) {
                 break;
             }
-
-            HashMap<String, Feed> grouped = groupByDay(feed);
-
-            for (String date : grouped.keySet()) {
-                Feed group = grouped.get(date);
-                int groupCount = group.getEntries().size();
-                if (groupCount > 0) {
-                    if (Importer.PERSIST_THROTTLE > 0
-                            && persistCount > 0
-                            && persistCount % Importer.MAX_MRSS_IMPORT_FILES == 0) {
-                        System.out.println("Throttling");
-                        Thread.sleep(Importer.PERSIST_THROTTLE);
-                    }
-                    persistCount += 1;
-                    entryCount += groupCount;
-                    System.out.println(String.format("Going: persisting %d entries in %d puts", entryCount, persistCount));
-                    persistenceStrategy.persist(group, date);
-                }
-            }
-            pageIndex++;
-//            break; // @todo: remove
+            persistenceStrategy.persist(feed, String.format(
+                    "%s-%s",
+                    new SimpleDateFormat("YYYY-MM-dd").format(start),
+                    new SimpleDateFormat("YYYY-MM-dd").format(end)
+            ));
+            importedMedia += feed.getEntries().size();
+            pageIndex += 1;
         }
-        System.out.println(String.format("Complete: persisted %d entries in %d puts", entryCount, persistCount));
-    }
 
-    private static HashMap<String, Feed> groupByDay(Feed<Media> feed) {
-        HashMap<String, Feed> result = new HashMap<>();
-        Iterator<Media> iterator = feed.getEntries().iterator();
-        while (iterator.hasNext()) {
-            Media media = iterator.next();
-            String date = new SimpleDateFormat("YYYY-MM-dd").format(media.getPubDate());
-            Feed<Media> before = result.get(date);
-            Feed<Media> current = new Feed<>();
-            if (before != null) {
-                current.setEntries(before.getEntries());
-            }
-            current.getEntries().add(media);
-            result.put(date, current);
-        }
-        return result;
+        return importedMedia;
     }
 
     private static void testMedia() throws MarshallingException {
