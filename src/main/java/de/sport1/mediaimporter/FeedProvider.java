@@ -36,7 +36,14 @@ class FeedProvider {
                         .collect(Collectors.toList());
                 MediaFile[] thumbnail = {Converter.thumbnail(k)};
                 media.setThumbnails(thumbnail);
-                media.setContent(mediaFiles.toArray(new MediaFile[0]));
+                MediaFile[] content = mediaFiles.toArray(new MediaFile[0]);
+                media.setContent(content);
+                if (0 == content.length) {
+                    System.err.println(String.format(
+                            "No mediafiles for %s",
+                            k.id
+                    ));
+                }
             } catch (KalturaApiException e) {
                 e.printStackTrace();
             }
@@ -49,18 +56,18 @@ class FeedProvider {
     }
 
     private MediaFile makeMediaFileWithAsset(final KalturaFlavorAssetWithParams f, final KalturaMediaEntry k) {
-        try {
-            KalturaFlavorAsset flavorAsset = f.flavorAsset;
-            KalturaFlavorParams flavorParams = f.flavorParams;
-            if (flavorAsset != null) {
+        KalturaFlavorAsset flavorAsset = f.flavorAsset;
+        KalturaFlavorParams flavorParams = f.flavorParams;
+        if (flavorAsset != null) {
+            try {
                 String url = clients.getKalturaClient().getFlavorAssetService().getDownloadUrl(flavorAsset.id, true);
                 if (url.startsWith(Converter.downloadUrlPrefix)) { // only add managed files which are on the net storage
                     return Converter.convert(k, flavorAsset, flavorParams, url);
                 }
+            } catch (KalturaApiException e) {
+                // it's not unnatural to not have all flavours, eg for the fm podcasts
+                // log error if no flavour is found at all
             }
-        } catch (KalturaApiException e) {
-            System.err.println(String.format("Error when importing %s", k.id));
-            e.printStackTrace();
         }
         return new MediaFile();
     }
