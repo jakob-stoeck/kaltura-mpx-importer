@@ -29,9 +29,10 @@ import java.util.List;
 public class Importer {
 
     final static int KALTURA_PAGESIZE_LIMIT = 500;
-    final static int PERSIST_THROTTLE = 10000;
-    final static int PERSIST_THROTTLE_THRESHOLD = 500;
+    final static int PERSIST_THROTTLE_TIME = 60000;
+    final static int PERSIST_THROTTLE_AFTER_ITEMS = 500;
     final static int PERSIST_DAYS_IN_ONE_GO = 1;
+    final static int PERSIST_TO_YEAR = 2016; // 2009 when importing everything
     final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
 
     final static int STRATEGY_FTP = 1;
@@ -102,9 +103,8 @@ public class Importer {
         FeedProvider feedProvider = new FeedProvider(clients);
 
         LocalDate date = LocalDate.now();
-//        LocalDate stop = LocalDate.of(2009, 1, 1);
-        LocalDate stop = LocalDate.of(2017, 1, 1);
-        long throttleThreshold = Importer.PERSIST_THROTTLE_THRESHOLD;
+        LocalDate stop = LocalDate.of(Importer.PERSIST_TO_YEAR, 1, 1);
+        long throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
 
         do {
             Date end = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
@@ -120,8 +120,8 @@ public class Importer {
             ));
             if (throttleThreshold < 0) {
                 System.out.println("Throttling");
-                throttleThreshold = Importer.PERSIST_THROTTLE_THRESHOLD;
-                Thread.sleep(Importer.PERSIST_THROTTLE);
+                throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
+                Thread.sleep(Importer.PERSIST_THROTTLE_TIME);
             }
         } while (date.compareTo(stop) > 0);
     }
@@ -134,8 +134,8 @@ public class Importer {
     ) throws Exception {
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
-        filter.createdAtGreaterThanOrEqual = (int) start.getTime() / 1000;
-        filter.createdAtLessThanOrEqual = (int) end.getTime() / 1000 - 1;
+        filter.createdAtGreaterThanOrEqual = Math.round(start.getTime() / 1000);
+        filter.createdAtLessThanOrEqual = Math.round(end.getTime() / 1000 - 1);
         KalturaFilterPager pager = new KalturaFilterPager();
         pager.pageSize = Importer.KALTURA_PAGESIZE_LIMIT;
 
