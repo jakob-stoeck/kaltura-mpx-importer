@@ -9,6 +9,7 @@ import com.kaltura.client.types.KalturaFilterPager;
 import com.kaltura.client.types.KalturaTagFilter;
 import com.theplatform.media.api.client.CategoryClient;
 import com.theplatform.media.api.data.objects.Category;
+import com.theplatform.module.exception.ValidationException;
 
 import java.net.URI;
 import java.util.*;
@@ -131,7 +132,14 @@ class CategoryImporter {
         CategoryClient categoryClient = clients.getMpxCategoryClient();
         List<Category> newCategories = new ArrayList<>();
         for (List<Category> part : Iterables.partition(categories, maxMpxEntriesPerReq)) {
-            newCategories.addAll(categoryClient.create(part, fields).getEntries());
+            try {
+                newCategories.addAll(categoryClient.create(part, fields).getEntries());
+            } catch (ValidationException ignore) {
+                if (!ignore.getMessage().startsWith("A category with the full title ")
+                        || !ignore.getMessage().endsWith(" already exists.")) {
+                    throw ignore;
+                }
+            }
         }
         return newCategories;
     }

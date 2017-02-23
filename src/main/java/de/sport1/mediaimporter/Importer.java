@@ -27,10 +27,9 @@ import java.util.Date;
 import java.util.List;
 
 public class Importer {
-
     final static int KALTURA_PAGESIZE_LIMIT = 500;
     final static int PERSIST_THROTTLE_TIME = 120000;
-    final static int PERSIST_THROTTLE_AFTER_ITEMS = 500;
+    final static int PERSIST_THROTTLE_AFTER_ITEMS = 50;
     final static int PERSIST_DAYS_IN_ONE_GO = 1;
     final static String PERSIST_TO_DATE = "2016-01-01"; // 2009 when importing everything
     final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
@@ -53,12 +52,9 @@ public class Importer {
         ClientsFactory clients = new ClientsFactory();
         URI mpxUserId = clients.getMpxUserId();
         CategoryImporter categoryImporter = new CategoryImporter(clients);
-
         // @todo: remove
         deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
-        // @todo: remove
-//        categoryImporter.importCategories();
-
+        categoryImporter.importCategories();
         importMedia(clients);
     }
 
