@@ -29,10 +29,10 @@ import java.util.List;
 public class Importer {
 
     final static int KALTURA_PAGESIZE_LIMIT = 500;
-    final static int PERSIST_THROTTLE_TIME = 60000;
+    final static int PERSIST_THROTTLE_TIME = 120000;
     final static int PERSIST_THROTTLE_AFTER_ITEMS = 500;
     final static int PERSIST_DAYS_IN_ONE_GO = 1;
-    final static int PERSIST_TO_YEAR = 2016; // 2009 when importing everything
+    final static String PERSIST_TO_DATE = "2016-01-01"; // 2009 when importing everything
     final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
 
     final static int STRATEGY_FTP = 1;
@@ -103,7 +103,7 @@ public class Importer {
         FeedProvider feedProvider = new FeedProvider(clients);
 
         LocalDate date = LocalDate.now();
-        LocalDate stop = LocalDate.of(Importer.PERSIST_TO_YEAR, 1, 1);
+        LocalDate stop = LocalDate.parse(Importer.PERSIST_TO_DATE);
         long throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
 
         do {
