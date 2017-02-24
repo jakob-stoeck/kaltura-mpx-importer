@@ -54,7 +54,7 @@ public class Importer {
         URI mpxUserId = clients.getMpxUserId();
         CategoryImporter categoryImporter = new CategoryImporter(clients);
         // @todo: remove
-        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
+//        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
         categoryImporter.importCategories();
         importMedia(clients);
     }

@@ -46,12 +46,21 @@ class Converter {
 
     static {
         // Kaltura Access Profile Id -> MPX id
-        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Default
-        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Global (same as default)
-        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234750")); // DE
-        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234749")); // DE, AT
-        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234751")); // DE, AT, CH
-        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234748")); // DE, AT, CH, LI, LUX
+        // dev
+//        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Default
+//        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234747")); // Global (same as default)
+//        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234750")); // DE
+//        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234749")); // DE, AT
+//        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234751")); // DE, AT, CH
+//        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234748")); // DE, AT, CH, LI, LUX
+
+        // prod
+        restrictionMap.put(31, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234752")); // Default
+        restrictionMap.put(48, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234752")); // Global (same as default)
+        restrictionMap.put(35, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234755")); // DE
+        restrictionMap.put(32, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234754")); // DE, AT
+        restrictionMap.put(34, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234756")); // DE, AT, CH
+        restrictionMap.put(33, URI.create("http://data.delivery.theplatform.eu/delivery/data/Restriction/46234753")); // DE, AT, CH, LI, LUX
     }
 
     private static String nullToEmptyString(String s) {
