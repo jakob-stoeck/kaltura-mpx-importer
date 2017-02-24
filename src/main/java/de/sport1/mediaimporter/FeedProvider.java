@@ -18,9 +18,22 @@ class FeedProvider {
         this.clients = clients;
     }
 
-    Feed<Media> get(KalturaMediaEntryFilter filter, KalturaFilterPager pager) throws ParseException, KalturaApiException {
-        // get kaltura media
-        List<KalturaMediaEntry> kalturaMediaEntries = clients.getKalturaClient().getMediaService().list(filter, pager).objects;
+    Feed<Media> get(KalturaMediaEntryFilter filter, KalturaFilterPager pager) throws ParseException {
+        List<KalturaMediaEntry> kalturaMediaEntries;
+
+        try {
+            kalturaMediaEntries = clients.getKalturaClient().getMediaService().list(filter, pager).objects;
+        } catch (KalturaApiException e) {
+            System.err.println(String.format(
+                    "KalturaApiException: createdAtGreaterThanOrEqual %s, createdAtLessThanOrEqual %s, pageIndex %s, pageSize %s",
+                    filter.createdAtGreaterThanOrEqual,
+                    filter.createdAtLessThanOrEqual,
+                    pager.pageIndex,
+                    pager.pageSize
+            ));
+            e.printStackTrace();
+            return new Feed<>();
+        }
 
         // TRANSFORM ---
         // convert kaltura to mpx objects
@@ -40,15 +53,24 @@ class FeedProvider {
                 media.setContent(content);
                 if (0 == content.length) {
                     System.err.println(String.format(
-                            "No mediafiles for %s",
+                            "Video %s has no mediafiles",
                             k.id
                     ));
                 }
             } catch (KalturaApiException e) {
-                e.printStackTrace();
+                if (!e.getMessage().equals("Invalid KS \"EXPIRED\", Error \"-1,INVALID_STR\"")) {
+                    e.printStackTrace();
+                    return media;
+                }
+                System.err.println(String.format(
+                        "Video %s is expired",
+                        k.id
+                ));
             }
             return media;
-        }).collect(Collectors.toList());
+        })
+                .filter(m -> m.getContent() != null)
+                .collect(Collectors.toList());
 
         Feed<Media> feed = new Feed<>();
         feed.setEntries(mpxMedia);

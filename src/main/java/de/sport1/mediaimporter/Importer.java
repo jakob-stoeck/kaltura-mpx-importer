@@ -29,6 +29,7 @@ import java.util.List;
 public class Importer {
     final static int KALTURA_PAGESIZE_LIMIT = 500;
     final static int PERSIST_THROTTLE_TIME = 120000;
+    final static int THROTTLE_ON_UNEXPECTED_ERROR = 600000; // wait some minutes if something breaks
     final static int PERSIST_THROTTLE_AFTER_ITEMS = 50;
     final static int PERSIST_DAYS_IN_ONE_GO = 1;
     final static String PERSIST_TO_DATE = "2016-01-01"; // 2009 when importing everything
@@ -106,18 +107,24 @@ public class Importer {
             Date end = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
             date = date.minusDays(PERSIST_DAYS_IN_ONE_GO);
             Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
-            long importedMedia = importInterval(start, end, feedProvider, persistenceStrategy);
-            throttleThreshold -= importedMedia;
-            System.out.println(String.format(
-                    "%d\t%s\t%s",
-                    importedMedia,
-                    new SimpleDateFormat("YYYY-MM-dd").format(start),
-                    new SimpleDateFormat("YYYY-MM-dd").format(end)
-            ));
-            if (throttleThreshold < 0) {
-                System.out.println("Throttling");
-                throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
-                Thread.sleep(Importer.PERSIST_THROTTLE_TIME);
+            try {
+                long importedMedia = importInterval(start, end, feedProvider, persistenceStrategy);
+                throttleThreshold -= importedMedia;
+                System.out.println(String.format(
+                        "%d\t%s\t%s",
+                        importedMedia,
+                        new SimpleDateFormat("YYYY-MM-dd").format(start),
+                        new SimpleDateFormat("YYYY-MM-dd").format(end)
+                ));
+                if (throttleThreshold < 0) {
+                    System.out.println("Throttling");
+                    throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
+                    Thread.sleep(Importer.PERSIST_THROTTLE_TIME);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                date = date.plusDays(PERSIST_DAYS_IN_ONE_GO);
+                Thread.sleep(Importer.THROTTLE_ON_UNEXPECTED_ERROR);
             }
         } while (date.compareTo(stop) > 0);
     }
