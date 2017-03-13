@@ -6,3 +6,7 @@ mpx.baseUrl=https://identity.auth.theplatform.eu/idm
 mpx.user=mpx/changethis
 mpx.password=changethis
 mpx.accountId=changethis
+pmftp.host=changethis
+pmftp.port=changethis
+pmftp.user=changethis
+pmftp.password=changethis

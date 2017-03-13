@@ -19,13 +19,25 @@ import com.theplatform.media.api.data.objects.Media;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class Importer {
+    final static int KALTURA_PAGESIZE_LIMIT = 500;
+    final static int PERSIST_THROTTLE_TIME = 120000;
+    final static int THROTTLE_ON_UNEXPECTED_ERROR = 600000; // wait some minutes if something breaks
+    final static int PERSIST_THROTTLE_AFTER_ITEMS = 50;
+    final static int PERSIST_DAYS_IN_ONE_GO = 1;
+    final static String PERSIST_TO_DATE = "2016-01-01"; // 2009 when importing everything
+    final static String FTP_PREFIX = "ftp://dsf.upload.akamai.com/";
+
+    final static int STRATEGY_FTP = 1;
+    final static int STRATEGY_HTTP = 2;
+    final static int STRATEGY = Importer.STRATEGY_FTP;
 
     public static void main(String[] args) throws Exception {
         // logging
@@ -39,11 +51,11 @@ public class Importer {
     private static void migrate() throws Exception {
         // authentication
         ClientsFactory clients = new ClientsFactory();
-//        URI mpxUserId = clients.getMpxUserId();
-//        CategoryImporter categoryImporter = new CategoryImporter(clients);
-
+        URI mpxUserId = clients.getMpxUserId();
+        CategoryImporter categoryImporter = new CategoryImporter(clients);
+        // @todo: remove
 //        deleteAllEntriesFromUser(clients.getMpxCategoryClient(), mpxUserId);
-//        categoryImporter.importCategories();
+        categoryImporter.importCategories();
         importMedia(clients);
     }
 
@@ -69,31 +81,86 @@ public class Importer {
     }
 
     private static void importMedia(ClientsFactory clients) throws Exception {
-        String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
-        String pass = clients.getMpxMediaClient().getAuthorization().getToken();
-        PersistenceStrategy persistenceStrategy = new HttpStrategy(user, pass);
+        PersistenceStrategy persistenceStrategy;
+
+        if (Importer.STRATEGY_HTTP == Importer.STRATEGY) {
+            String user = clients.getMpxMediaClient().getAuthorization().getAccountIds()[0];
+            String pass = clients.getMpxMediaClient().getAuthorization().getToken();
+            persistenceStrategy = new HttpStrategy(String.format("http://ingest.theplatform.eu/ingest/mrss?account=%s&token=%s", user, pass));
+        }
+
+        if (Importer.STRATEGY_FTP == Importer.STRATEGY) {
+            String host = (String) clients.getPlazaFtpAuth().get("host");
+            int port = Integer.parseInt((String) clients.getPlazaFtpAuth().get("port"));
+            String user = (String) clients.getPlazaFtpAuth().get("user");
+            String password = (String) clients.getPlazaFtpAuth().get("password");
+            persistenceStrategy = new FtpStrategy(host, port, user, password);
+        }
+
         FeedProvider feedProvider = new FeedProvider(clients);
 
-        // which media to importMedia
+        LocalDate date = LocalDate.now();
+        LocalDate stop = LocalDate.parse(Importer.PERSIST_TO_DATE);
+        long throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
+
+        do {
+            Date end = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            date = date.minusDays(PERSIST_DAYS_IN_ONE_GO);
+            Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            try {
+                long importedMedia = importInterval(start, end, feedProvider, persistenceStrategy);
+                throttleThreshold -= importedMedia;
+                System.out.println(String.format(
+                        "%d\t%s\t%s",
+                        importedMedia,
+                        new SimpleDateFormat("YYYY-MM-dd").format(start),
+                        new SimpleDateFormat("YYYY-MM-dd").format(end)
+                ));
+                if (throttleThreshold < 0) {
+                    System.out.println("Throttling");
+                    throttleThreshold = Importer.PERSIST_THROTTLE_AFTER_ITEMS;
+                    Thread.sleep(Importer.PERSIST_THROTTLE_TIME);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                date = date.plusDays(PERSIST_DAYS_IN_ONE_GO);
+                Thread.sleep(Importer.THROTTLE_ON_UNEXPECTED_ERROR);
+            }
+        } while (date.compareTo(stop) > 0);
+    }
+
+    private static long importInterval(
+            Date start,
+            Date end,
+            FeedProvider feedProvider,
+            PersistenceStrategy persistenceStrategy
+    ) throws Exception {
         KalturaMediaEntryFilter filter = new KalturaMediaEntryFilter();
         filter.orderBy = KalturaMediaEntryOrderBy.CREATED_AT_DESC.getHashCode();
-        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-        filter.createdAtGreaterThanOrEqual = Math.round(dateFormat.parse("2017-01-01T00:00:00+00:00").getTime() / 1000);
-        filter.createdAtLessThanOrEqual = Math.round(dateFormat.parse("2017-02-12T23:59:59+00:00").getTime() / 1000);
+        filter.createdAtGreaterThanOrEqual = Math.round(start.getTime() / 1000);
+        filter.createdAtLessThanOrEqual = Math.round(end.getTime() / 1000 - 1);
         KalturaFilterPager pager = new KalturaFilterPager();
-        pager.pageSize = 100;
+        pager.pageSize = Importer.KALTURA_PAGESIZE_LIMIT;
 
-        int i = 1;
+        long importedMedia = 0;
+        int pageIndex = 1;
+
         while (true) {
-            // migration
-            pager.pageIndex = i;
+            pager.pageIndex = pageIndex;
             Feed<Media> feed = feedProvider.get(filter, pager);
-            if (feed.getEntries().size() == 0)
+            if (feed.getEntries().size() == 0) {
                 break;
-            persistenceStrategy.persist(feed);
-            i++;
+            }
+            persistenceStrategy.persist(feed, String.format(
+                    "%s-%s",
+                    new SimpleDateFormat("YYYY-MM-dd").format(start),
+                    new SimpleDateFormat("YYYY-MM-dd").format(end)
+            ));
+            importedMedia += feed.getEntries().size();
+            pageIndex += 1;
         }
-        System.out.printf("%nImported %d videos.%n", i);
+
+        return importedMedia;
     }
 
     private static void testMedia() throws MarshallingException {
@@ -110,5 +177,4 @@ public class Importer {
         MarshallingContext marshallingContext = new MarshallingContext(new SchemaVersion(1, 8, 0), "1", true, true, true);
         mrss.marshal(feed, System.out, marshallingContext);
     }
-
 }
